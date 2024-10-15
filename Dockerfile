@@ -1,41 +1,16 @@
-ARG PARENT_VERSION=latest-20
-ARG PORT=3000
-ARG PORT_DEBUG=9229
-
-FROM defradigital/node-development:${PARENT_VERSION} AS development
-ARG PARENT_VERSION
-LABEL uk.gov.defra.ffc.parent-image=defradigital/node-development:${PARENT_VERSION}
+FROM python:3.12.4-slim
 
 ARG PORT
 ARG PORT_DEBUG
-ENV PORT=${PORT}
+ENV PORT ${PORT}
 EXPOSE ${PORT} ${PORT_DEBUG}
 
-COPY --chown=node:node package*.json ./
-RUN npm install
-COPY --chown=node:node . .
-RUN npm run build
+WORKDIR /code
 
-CMD [ "npm", "run", "docker:dev" ]
+COPY ./requirements.txt /code/requirements.txt
 
-FROM defradigital/node:${PARENT_VERSION} AS production
-ARG PARENT_VERSION
-LABEL uk.gov.defra.ffc.parent-image=defradigital/node:${PARENT_VERSION}
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-# Add curl to template.
-# CDP PLATFORM HEALTHCHECK REQUIREMENT
-USER root
-RUN apk update && \
-    apk add curl
-USER node
+COPY ./src /code/app
 
-COPY --from=development /home/node/package*.json ./
-COPY --from=development /home/node/.server ./.server/
-
-RUN npm ci --omit=dev
-
-ARG PORT
-ENV PORT=${PORT}
-EXPOSE ${PORT}
-
-CMD [ "node", "." ]
+CMD ["fastapi", "run", "app/main.py", "--port", ${PORT}]
