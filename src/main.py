@@ -16,8 +16,8 @@ async def lifespan(app:FastAPI):
     try:
         app.client.admin.command("ping")
         print("Connected to MongoDB")
-        print(f"Database: {settings.DB_Name}")
-        print(f"URL: {settings.DB_URL}")
+        print(f"Database: {settings.mongoUri}")
+        print(f"URL: {settings.mongoDatabase}")
     except Exception as e:
         print(f"Error connecting to MongoDB: {e}")
     yield
