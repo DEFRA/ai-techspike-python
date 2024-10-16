@@ -11,13 +11,13 @@ from src.config import BaseConfig
 settings = BaseConfig()
 
 async def lifespan(app:FastAPI):
-    app.client = motor_asyncio.AsyncIOMotorClient(settings.DB_URL)
-    app.db = app.client[settings.DB_Name]
+    app.client = motor_asyncio.AsyncIOMotorClient(settings.MONGO_URI)
+    app.db = app.client[settings.MONGO_DATABASE]
     try:
         app.client.admin.command("ping")
         print("Connected to MongoDB")
-        print(f"Database: {settings.mongoUri}")
-        print(f"URL: {settings.mongoDatabase}")
+        print(f"Database: {settings.MONGO_URI}")
+        print(f"URL: {settings.MONGO_DATABASE}")
     except Exception as e:
         print(f"Error connecting to MongoDB: {e}")
     yield
