@@ -1,217 +1,212 @@
 # ai-techspike-python
 
-Core delivery platform Node.js Backend Template.
+This is work-in-progress. See [To Do List](./TODO.md)
 
-- [Requirements](#requirements)
-  - [Node.js](#nodejs)
-- [Local development](#local-development)
-  - [Setup](#setup)
-  - [Development](#development)
-  - [Testing](#testing)
-  - [Production](#production)
-  - [Npm scripts](#npm-scripts)
-  - [Update dependencies](#update-dependencies)
-  - [Formatting](#formatting)
-    - [Windows prettier issue](#windows-prettier-issue)
-- [API endpoints](#api-endpoints)
-- [Calling API endpoints](#calling-api-endpoints)
-  - [Postman](#postman)
-- [Development helpers](#development-helpers)
-  - [MongoDB Locks](#mongodb-locks)
-- [Docker](#docker)
-  - [Development image](#development-image)
-  - [Production image](#production-image)
-  - [Docker Compose](#docker-compose)
-  - [Dependabot](#dependabot)
-  - [SonarCloud](#sonarcloud)
-- [Licence](#licence)
-  - [About the licence](#about-the-licence)
+- [ai-techspike-python](#ai-techspike-python)
+  - [Requirements](#requirements)
+    - [Python](#python)
+    - [Linting and Formatting](#linting-and-formatting)
+    - [Docker](#docker)
+  - [Local development](#local-development)
+    - [Setup & Configuration](#setup--configuration)
+    - [Development](#development)
+    - [Testing](#testing)
+    - [Production Mode](#production-mode)
+  - [API endpoints](#api-endpoints)
+  - [Custom Cloudwatch Metrics](#custom-cloudwatch-metrics)
+  - [Pipelines](#pipelines)
+    - [Dependabot](#dependabot)
+    - [SonarCloud](#sonarcloud)
+  - [Licence](#licence)
+    - [About the licence](#about-the-licence)
 
 ## Requirements
 
-### Node.js
+### Python
 
-Please install [Node.js](http://nodejs.org/) `>= v18` and [npm](https://nodejs.org/) `>= v9`. You will find it
-easier to use the Node Version Manager [nvm](https://github.com/creationix/nvm)
+Please install python `>= 3.12` and `pipx` in your environment. This template uses [uv](https://github.com/astral-sh/uv) to manage the environment and dependencies.
 
-To use the correct version of Node.js for this application, via nvm:
+```python
+# install uv via pipx
+pipx install uv
+
+# sync dependencies
+uv sync
+
+# source python venv
+source .venv/bin/activate
+
+# install the pre-commit hooks
+pre-commit install
+```
+
+This opinionated template uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API framework.
+
+### Environment Variable Configuration
+
+The application uses Pydantic's `BaseSettings` for configuration management in `app/config.py`, automatically mapping environment variables to configuration fields.
+
+In CDP, environment variables and secrets need to be set using CDP conventions.  See links below:
+- [CDP App Config](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/config.md)
+- [CDP Secrets](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/secrets.md)
+
+For local development - see [instructions below](#local-development).
+
+### Linting and Formatting
+
+This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting Python code.
+
+#### Running Ruff
+
+To run Ruff from the command line:
 
 ```bash
-cd ai-techspike-python
-nvm use
+# Run linting with auto-fix
+uv run ruff check . --fix
+
+# Run formatting
+uv run ruff format .
 ```
+
+#### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to run linting and formatting checks automatically before each commit.
+
+The pre-commit configuration is defined in `.pre-commit-config.yaml`
+
+To set up pre-commit hooks:
+
+```bash
+# Set up the git hooks
+pre-commit install
+```
+
+To run the hooks manually on all files:
+
+```bash
+pre-commit run --all-files
+```
+
+#### VS Code Configuration
+
+For the best development experience, configure VS Code to use Ruff:
+
+1. Install the [Ruff extension](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff) for VS Code
+2. Configure your VS Code settings (`.vscode/settings.json`):
+
+```json
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.ruff": "explicit",
+        "source.organizeImports.ruff": "explicit"
+    },
+    "ruff.lint.run": "onSave",
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+        }
+    }
+}
+```
+
+This configuration will:
+
+- Format your code with Ruff when you save a file
+- Fix linting issues automatically when possible
+- Organize imports according to isort rules
+
+#### Ruff Configuration
+
+Ruff is configured in the `.ruff.toml` file
+
+### Docker
+
+This repository uses Docker throughput its lifecycle i.e. both for local development and the environments. A benefit of this is that environment variables & secrets are managed consistently throughout the lifecycle
+
+See the `Dockerfile` and `compose.yml` for details
 
 ## Local development
 
-### Setup
+### Setup & Configuration
 
-Install application dependencies:
+Follow the convention below for environment variables and secrets in local development.
 
-```bash
-npm install
-```
+**Note** that it does not use `.env` or `python-dotenv` as this is not the convention in the CDP environment.
+
+**Environment variables:** `compose/aws.env`.
+
+**Secrets:** `compose/secrets.env`. You need to create this, as it's excluded from version control.
+
+**Libraries:** Ensure the python virtual environment is configured and libraries are installed using `uv sync`, [as above](#python)
+
+**Pre-Commit Hooks:** Ensure you install the pre-commit hooks, as above
 
 ### Development
 
-To run the application in `development` mode run:
+This app can be run locally by either using the Docker Compose project or via the provided script `scripts/start_dev_server.sh`.
+
+#### Using Docker Compose
+
+To run the application using Docker Compose, you can use the following command:
 
 ```bash
-npm run dev
+docker compose --profile service up --build
 ```
 
+If you want to enable hot-reloading, you can press the `w` key once the compose project is running to enable `watch` mode.
+
+#### Using the provided script
+
+To run the application using the provided script, you can execute:
+
+```bash
+./scripts/start_dev_server.sh
+```
+
+This script will:
+
+- Check if Docker is running
+- Start dependent services with Docker Compose (Localstack, MongoDB)
+- Set up environment variables for local development
+- Load configuration from compose/aws.env and compose/secrets.env
+- Verify the Python virtual environment is set up
+- Start the FastAPI application with hot-reload enabled
+
+The service will then run on `http://localhost:8085`
+
 ### Testing
+
+Ensure the python virtual environment is configured and libraries are installed using `uv sync`, [as above](#python)
+
+Testing follows the [FastApi documented approach](https://fastapi.tiangolo.com/tutorial/testing/); using pytest & starlette.
 
 To test the application run:
 
 ```bash
-npm run test
-```
-
-### Production
-
-To mimic the application running in `production` mode locally run:
-
-```bash
-npm start
-```
-
-### Npm scripts
-
-All available Npm scripts can be seen in [package.json](./package.json)
-To view them in your command line run:
-
-```bash
-npm run
-```
-
-### Update dependencies
-
-To update dependencies use [npm-check-updates](https://github.com/raineorshine/npm-check-updates):
-
-> The following script is a good start. Check out all the options on
-> the [npm-check-updates](https://github.com/raineorshine/npm-check-updates)
-
-```bash
-ncu --interactive --format group
-```
-
-### Formatting
-
-#### Windows prettier issue
-
-If you are having issues with formatting of line breaks on Windows update your global git config by running:
-
-```bash
-git config --global core.autocrlf false
+uv run pytest
 ```
 
 ## API endpoints
 
 | Endpoint             | Description                    |
 | :------------------- | :----------------------------- |
-| `GET: /health`       | Health                         |
-| `GET: /example    `  | Example API (remove as needed) |
-| `GET: /example/<id>` | Example API (remove as needed) |
+| `GET: /docs`         | Automatic API Swagger docs     |
+| `GET: /health`       | Health check endpoint          |
+| `GET: /example/test` | Simple example endpoint        |
+| `GET: /example/db`   | Database query example         |
+| `GET: /example/http` | HTTP client example            |
 
-## Calling API endpoints
+## Custom Cloudwatch Metrics
 
-### Postman
+Uses the [aws embedded metrics library](https://github.com/awslabs/aws-embedded-metrics-python). An example can be found in `metrics.py`
 
-A [Postman](https://www.postman.com/) collection and environment are available for making calls to the
-ai-techspike-python API.
-Simply import the collection and environment into Postman.
+In order to make this library work in the environments, the environment variable `AWS_EMF_ENVIRONMENT=local` is set in the app config. This tells the library to use the local cloudwatch agent that has been configured in CDP, and uses the environment variables set up in CDP `AWS_EMF_AGENT_ENDPOINT`, `AWS_EMF_LOG_GROUP_NAME`, `AWS_EMF_LOG_STREAM_NAME`, `AWS_EMF_NAMESPACE`, `AWS_EMF_SERVICE_NAME`
 
-- [CDP Node Backend Template Postman Collection](postman/ai-techspike-python.postman_collection.json)
-- [CDP Node Backend Template Postman Environment](postman/ai-techspike-python.postman_environment.json)
-
-## Development helpers
-
-### MongoDB Locks
-
-If you require a write lock for Mongo you can acquire it via `server.locker` or `request.locker`:
-
-```javascript
-async function doStuff(server) {
-  const lock = await server.locker.lock('unique-resource-name')
-
-  if (!lock) {
-    // Lock unavailable
-    return
-  }
-
-  try {
-    // do stuff
-  } finally {
-    await lock.free()
-  }
-}
-```
-
-Keep it small and atomic.
-
-You may use **using** for the lock resource management.
-Note test coverage reports do not like that syntax.
-
-```javascript
-async function doStuff(server) {
-  await using lock = await server.locker.lock('unique-resource-name')
-
-  if (!lock) {
-    // Lock unavailable
-    return
-  }
-
-  // do stuff
-
-  // lock automatically released
-}
-```
-
-Helper methods are also available in `/src/helpers/mongo-lock.js`.
-
-## Docker
-
-### Development image
-
-Build:
-
-```bash
-docker build --target development --no-cache --tag ai-techspike-python:development .
-```
-
-Run:
-
-```bash
-docker run -e PORT=3001 -p 3001:3001 ai-techspike-python:development
-```
-
-### Production image
-
-Build:
-
-```bash
-docker build --no-cache --tag ai-techspike-python .
-```
-
-Run:
-
-```bash
-docker run -e PORT=3001 -p 3001:3001 ai-techspike-python
-```
-
-### Docker Compose
-
-A local environment with:
-
-- Localstack for AWS services (S3, SQS)
-- Redis
-- MongoDB
-- This service.
-- A commented out frontend example.
-
-```bash
-docker compose up --build -d
-```
+## Pipelines
 
 ### Dependabot
 

@@ -1,32 +1,67 @@
-ARG PYTHON_VERSION=3.12.4
-FROM python:${PYTHON_VERSION}-slim
+# Set default values for build arguments
+ARG PARENT_VERSION=latest-3.12
+ARG PORT=8085
+ARG PORT_DEBUG=8086
 
-ENV PYTHONDONTWRITEBYTECODE=1
+FROM defradigital/python-development:${PARENT_VERSION} AS development
 
-ENV PYTHONUNBUFFERED=1
+ENV PATH="/home/nonroot/.venv/bin:${PATH}"
+ENV LOG_CONFIG="logging-dev.json"
 
-WORKDIR /app
+USER root
 
-ARG UID=10001
-RUN adduser \
-  --disabled-password \
-  --gecos "" \
-  --home "/nonexistent" \
-  --shell "/sbin/nologin" \
-  --no-create-home \
-  --uid "${UID}" \
-  appuser
+# curl is required for CDP health checks
+# Install curl via Debian 13 (trixie) backport to patch CVE-2025-0725
+RUN echo "deb https://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list \
+    && apt update \
+    && apt install -t bookworm-backports -y --no-install-recommends \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY ./requirements.txt /app/requirements.txt
-COPY ./logging.yaml /app/logging.yaml
+USER nonroot
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-  --mount=type=bind,source=requirements.txt,target=/app/requirements.txt \
-  python -m pip install -r /app/requirements.txt
+WORKDIR /home/nonroot
 
-USER appuser
+COPY --chown=nonroot:nonroot pyproject.toml .
+COPY --chown=nonroot:nonroot uv.lock .
 
-COPY ./src /app/src
-EXPOSE 8085
+RUN uv sync --frozen --no-cache
 
-CMD ["uvicorn", "src.main:app", "--host=0.0.0.0", "--port=8085", "--log-config", "/app/logging.yaml", "--no-access-log"]
+COPY --chown=nonroot:nonroot app/ ./app/
+COPY --chown=nonroot:nonroot logging-dev.json .
+
+ARG PORT=8085
+ARG PORT_DEBUG=8086
+ENV PORT=${PORT}
+EXPOSE ${PORT} ${PORT_DEBUG}
+
+CMD [ "-m", "app.main" ]
+
+FROM defradigital/python:${PARENT_VERSION} AS production
+
+ENV PATH="/home/nonroot/.venv/bin:${PATH}"
+ENV LOG_CONFIG="logging.json"
+
+USER root
+
+# CDP requires a shell and curl to run health checks
+COPY --from=development /bin/sh /bin/sh
+
+# Copy curl from the development stage to production
+COPY --from=development /lib/x86_64-linux-gnu/* /lib/x86_64-linux-gnu/
+COPY --from=development /bin/curl /bin/curl
+
+USER nonroot
+
+WORKDIR /home/nonroot
+
+COPY --chown=nonroot:nonroot --from=development /home/nonroot/.venv .venv/
+
+COPY --chown=nonroot:nonroot --from=development /home/nonroot/app/ ./app/
+COPY --chown=nonroot:nonroot logging.json .
+
+ARG PORT
+ENV PORT=${PORT}
+EXPOSE ${PORT}
+
+CMD [ "-m", "app.main" ]
