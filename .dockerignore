@@ -1,6 +1,0 @@
-node_modules
-Dockerfile
-coverage
-.venv
-dist
-**/__pycache__/

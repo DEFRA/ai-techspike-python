@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from logging import getLogger
 
@@ -35,7 +36,10 @@ app.include_router(health_router)
 app.include_router(example_router)
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
+    os.environ["HTTP_PROXY"] = config.http_proxy
+    os.environ["HTTPS_PROXY"] = config.http_proxy
+
     uvicorn.run(
         "app.main:app",
         host=config.host,
@@ -45,5 +49,5 @@ def main() -> None:
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

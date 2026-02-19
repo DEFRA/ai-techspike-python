@@ -1,8 +1,8 @@
-# ai-techspike-python
+# cdp-python-backend-template
 
 This is work-in-progress. See [To Do List](./TODO.md)
 
-- [ai-techspike-python](#ai-techspike-python)
+- [cdp-python-backend-template](#cdp-python-backend-template)
   - [Requirements](#requirements)
     - [Python](#python)
     - [Linting and Formatting](#linting-and-formatting)

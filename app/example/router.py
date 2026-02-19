@@ -10,13 +10,14 @@ router = APIRouter(prefix="/example")
 logger = getLogger(__name__)
 
 
-# remove this example route
+# basic endpoint example
 @router.get("/test")
 async def root():
     logger.info("TEST ENDPOINT")
     return {"ok": True}
 
 
+# database endpoint example
 @router.get("/db")
 async def db_query(db=Depends(get_db)):
     await db.example.insert_one({"foo": "bar"})
@@ -24,20 +25,9 @@ async def db_query(db=Depends(get_db)):
     return {"ok": data}
 
 
+# http client endpoint example
 @router.get("/http")
 async def http_query(client=Depends(create_async_client)):
     endpoint = config.aws_endpoint_url or "http://localstack:4566"
     resp = await client.get(f"{endpoint}/health")
     return {"ok": resp.status_code}
-
-
-@router.get("/proxy-test")
-async def proxy_test(client=Depends(create_async_client)):
-    resp = await client.get("https://www.gov.uk")
-
-    return {
-        "ok": {
-            "status_code": resp.status_code,
-            "data": resp.text[:100],
-        }
-    }
