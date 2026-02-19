@@ -31,3 +31,15 @@ async def http_query(client=Depends(create_async_client)):
     endpoint = config.aws_endpoint_url or "http://localstack:4566"
     resp = await client.get(f"{endpoint}/health")
     return {"ok": resp.status_code}
+
+
+@router.get("/proxy-test")
+async def proxy_test(client=Depends(create_async_client)):
+    resp = await client.get("https://www.gov.uk")
+
+    return {
+        "ok": {
+            "status_code": resp.status_code,
+            "data": resp.text[:100],
+        }
+    }
