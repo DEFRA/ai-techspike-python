@@ -37,8 +37,9 @@ app.include_router(example_router)
 
 
 def main() -> None:  # pragma: no cover
-    os.environ["HTTP_PROXY"] = config.http_proxy
-    os.environ["HTTPS_PROXY"] = config.http_proxy
+    # Setup squid proxy environment variables if configured
+    os.environ["HTTP_PROXY"] = str(config.http_proxy)
+    os.environ["HTTPS_PROXY"] = str(config.http_proxy)
 
     uvicorn.run(
         "app.main:app",
